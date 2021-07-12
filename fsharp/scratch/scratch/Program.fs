@@ -152,8 +152,7 @@ let executeCommand connPrefix batchCount (transactAbility: TransactAbility) (log
 let tryExecuteCommand connPrefix batchCount transactAbility logAbility =
     try
         executeCommand connPrefix batchCount transactAbility logAbility
-    with
-    | :? SqlException as ex -> logAbility.log "Exception" $"({ex.Message}) -> {batchCount.batch}"
+    with :? SqlException as ex -> logAbility.log "Exception" $"({ex.Message}) -> {batchCount.batch}"
 
 let executeCommands connPrefix (commands: seq<BatchCount>) (transactAbility: TransactAbility) (logAbility: LogAbility) =
     commands
@@ -161,7 +160,9 @@ let executeCommands connPrefix (commands: seq<BatchCount>) (transactAbility: Tra
         (fun i batchCount ->
             let executed = getExecutedMessage i batchCount
 
-            logAbility.subScope (dict [ "executed", executed ]) (tryExecuteCommand connPrefix batchCount transactAbility))
+            logAbility.subScope
+                (dict [ "executed", executed ])
+                (tryExecuteCommand connPrefix batchCount transactAbility))
 
 let delim = "GO"
 
@@ -225,9 +226,7 @@ let transformBatches (batches: seq<BatchCount>) =
                 yield batchCount
     }
 
-
-[<EntryPoint>]
-let main argv =
+let programWithAbilities file =
     let connString =
         "Data Source=localhost;User Id=sa;Password=aSdA56ss652;"
 
@@ -242,12 +241,15 @@ let main argv =
         >> executeCommands connString
 
     let withAbilities file scoped =
-        scoped >> LogAbility.scope (dict [ "file", file ])
+        scoped
+        >> LogAbility.scope (dict [ "file", file ])
         |> TransactAbility.scope
         |> ConnectAbility.scope
 
-    let programWithAbilities file = (program file) |> (withAbilities file)
+    (program file) |> (withAbilities file)
 
+[<EntryPoint>]
+let main argv =
     let startNew task state =
         Task.Factory.StartNew(fun () -> task state)
 
